@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use anyhow::{anyhow, Result};
 use log::info;
@@ -9,12 +10,15 @@ struct Locations {
 }
 
 impl Locations {
-    fn total_distance(mut self) -> usize {
-        self.lhs.sort();
-        self.rhs.sort();
+    fn total_distance(&self) -> usize {
+        let mut lhs = self.lhs.clone();
+        lhs.sort();
+
+        let mut rhs = self.rhs.clone();
+        rhs.sort();
 
         let mut distance = 0;
-        for (i, j) in self.lhs.into_iter().zip(self.rhs.into_iter()) {
+        for (i, j) in lhs.into_iter().zip(rhs.into_iter()) {
             if i > j {
                 distance += i - j;
             } else {
@@ -23,6 +27,27 @@ impl Locations {
         }
 
         distance
+    }
+
+    fn occurrences(items: &[usize]) -> HashMap<usize, usize> {
+        let mut occurrences = HashMap::new();
+
+        for item in items {
+            occurrences.entry(*item).and_modify(|c| *c += 1).or_insert(1);
+        }
+
+        occurrences
+    }
+
+    fn similarity_score(&self) -> usize {
+        let occurrences = Self::occurrences(&self.rhs);
+
+        let mut similarity = 0;
+        for item in self.lhs.iter() {
+            similarity += occurrences.get(item).cloned().unwrap_or(0) * *item;
+        }
+
+        similarity
     }
 }
 
@@ -53,6 +78,9 @@ fn main() -> Result<()> {
     let total_distance = locations.total_distance();
     info!("Total Distance: {total_distance}");
 
+    let similarity_score = locations.similarity_score();
+    info!("Similarity Score: {similarity_score}");
+
     Ok(())
 }
 
@@ -61,11 +89,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn example() -> Result<()> {
-        util::init_test_logger()?;
+    fn part_1_example() -> Result<()> {
+        let input = util::init_test()?;
 
-        let locations = Locations::try_from(util::test_input()?)?;
+        let locations = Locations::try_from(input)?;
         assert_eq!(11, locations.total_distance());
+
+        Ok(())
+    }
+
+    #[test]
+    fn part_2_example() -> Result<()> {
+        let input = util::init_test()?;
+
+        let locations = Locations::try_from(input)?;
+        assert_eq!(31, locations.similarity_score());
 
         Ok(())
     }

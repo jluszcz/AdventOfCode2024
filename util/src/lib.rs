@@ -71,6 +71,11 @@ pub fn init() -> Result<Vec<String>> {
     }
 }
 
+pub fn init_test() -> Result<Vec<String>> {
+    init_test_logger()?;
+    test_input()
+}
+
 fn init_logger(level: LevelFilter) -> Result<()> {
     inner_init_logger(Some(level), false)
 }

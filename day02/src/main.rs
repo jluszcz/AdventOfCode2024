@@ -1,34 +1,69 @@
-use anyhow::Result;
 use std::str::FromStr;
+
+use anyhow::Result;
 
 #[derive(Debug, Default)]
 struct Levels(Vec<usize>);
 
 impl Levels {
-    fn is_safe(&self) -> bool {
+    fn are_readings_safe_and_increasing(
+        x: usize,
+        y: usize,
+        overall_increasing: &Option<bool>,
+    ) -> (bool, bool) {
+        let increasing = y > x;
+
+        match overall_increasing {
+            Some(overall_increasing) if increasing != *overall_increasing => {
+                return (false, increasing)
+            }
+            Some(_) | None => (),
+        }
+
+        let diff = if increasing { y - x } else { x - y };
+
+        ((1..=3).contains(&diff), increasing)
+    }
+
+    fn are_readings_safe(readings: &[usize]) -> bool {
         let mut overall_increasing = None;
 
-        for (i, val) in self.0.iter().take(self.0.len() - 1).enumerate() {
+        for (i, val) in readings.iter().take(readings.len() - 1).enumerate() {
             let x = *val;
-            let y = self.0[i + 1];
+            let y = readings[i + 1];
 
-            let increasing = y > x;
+            let (safe, increasing) =
+                Self::are_readings_safe_and_increasing(x, y, &overall_increasing);
 
-            match overall_increasing {
-                Some(true) if increasing => (),
-                Some(false) if !increasing => (),
-                None => overall_increasing = Some(increasing),
-                Some(_) => return false,
-            }
-
-            let diff = if increasing { y - x } else { x - y };
-
-            if !(1..=3).contains(&diff) {
+            if !safe {
                 return false;
             }
+
+            overall_increasing = Some(increasing);
         }
 
         true
+    }
+
+    fn is_safe(&self) -> bool {
+        Self::are_readings_safe(&self.0)
+    }
+
+    fn is_safe_with_problem_dampener(&self) -> bool {
+        if self.is_safe() {
+            return true;
+        }
+
+        for i in 0..self.0.len() {
+            let mut readings = self.0.clone();
+            readings.remove(i);
+
+            if Self::are_readings_safe(&readings) {
+                return true;
+            }
+        }
+
+        false
     }
 }
 
@@ -49,12 +84,21 @@ impl TryFrom<String> for Levels {
 fn main() -> Result<()> {
     let input = util::init()?;
 
-    let safety_count = input
+    let levels = input
         .into_iter()
         .map(|s| Levels::try_from(s).unwrap())
-        .filter(Levels::is_safe)
-        .count();
+        .collect::<Vec<_>>();
+
+    let safety_count = levels.iter().filter(|l| (*l).is_safe()).count();
+
     println!("Safety Count: {safety_count}");
+
+    let safety_count = levels
+        .iter()
+        .filter(|l| (*l).is_safe_with_problem_dampener())
+        .count();
+
+    println!("Safety Count w/ Problem Dampener: {safety_count}");
 
     Ok(())
 }
@@ -71,16 +115,38 @@ mod tests {
         for (i, line) in input.into_iter().enumerate() {
             let levels = Levels::try_from(line)?;
             let is_safe = levels.is_safe();
-            assert_eq!(i == 0 || i == 5, is_safe, "Incorrect Safety: {:?} --> {}", levels, is_safe);
+            assert_eq!(
+                i == 0 || i == 5,
+                is_safe,
+                "Incorrect Safety: {:?} --> {}",
+                levels,
+                is_safe
+            );
         }
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn part_2_example() -> Result<()> {
-        todo!();
+        let mut input = util::init_test()?;
+
+        // Add an example where we need to skip the first reading
+        input.push("10 2 3 4 5".to_string());
+
+        assert_eq!(7, input.len());
+
+        for (i, line) in input.into_iter().enumerate() {
+            let levels = Levels::try_from(line)?;
+            let is_safe = levels.is_safe_with_problem_dampener();
+            assert_eq!(
+                !(i == 1 || i == 2),
+                is_safe,
+                "Incorrect Safety: {:?} --> {}",
+                levels,
+                is_safe
+            );
+        }
 
         Ok(())
     }

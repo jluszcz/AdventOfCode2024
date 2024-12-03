@@ -1,40 +1,76 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use regex::Regex;
 
 #[derive(Debug)]
 enum Instruction {
     Multiplication(usize, usize),
-}
-
-impl Instruction {
-    fn apply(&self) -> usize {
-        match self {
-            Instruction::Multiplication(x, y) => *x * *y,
-        }
-    }
+    Do,
+    DoNot,
 }
 
 #[derive(Debug, Default)]
 struct Instructions(Vec<Instruction>);
 
+impl Instructions {
+    fn apply(&self, unconditional: bool) -> usize {
+        let mut enabled = true;
+
+        let mut result = 0;
+        for instruction in self.0.iter() {
+            match instruction {
+                Instruction::Do => enabled = true,
+                Instruction::DoNot => enabled = false,
+                Instruction::Multiplication(x, y) => {
+                    if unconditional || enabled {
+                        result += *x * *y
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    fn apply_unconditionally(&self) -> usize {
+        self.apply(true)
+    }
+
+    fn apply_conditionally(&self) -> usize {
+        self.apply(false)
+    }
+}
+
 impl TryFrom<String> for Instructions {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let multiplication_regex = Regex::new(r"mul\((\d{1,3}),(\d{1,3})\)")?;
+        let instruction_regex =
+            Regex::new(r"(mul\((?<x>\d{1,3}),(?<y>\d{1,3})\))|(?<do>do\(\))|(?<dont>don't\(\))")?;
 
         let mut instructions = Instructions::default();
 
-        for (_, [x, y]) in multiplication_regex
-            .captures_iter(&value)
-            .map(|c| c.extract())
-        {
-            instructions.0.push(Instruction::Multiplication(
-                usize::from_str(x)?,
-                usize::from_str(y)?,
-            ))
+        for m in instruction_regex.captures_iter(&value) {
+            if m.name("do").is_some() {
+                instructions.0.push(Instruction::Do);
+            } else if m.name("dont").is_some() {
+                instructions.0.push(Instruction::DoNot);
+            } else {
+                let x = usize::from_str(
+                    m.name("x")
+                        .ok_or_else(|| anyhow!("Missing x in multiplication"))?
+                        .as_str(),
+                )?;
+
+                let y = usize::from_str(
+                    m.name("y")
+                        .ok_or_else(|| anyhow!("Missing y in multiplication"))?
+                        .as_str(),
+                )?;
+
+                instructions.0.push(Instruction::Multiplication(x, y));
+            }
         }
 
         Ok(instructions)
@@ -46,9 +82,11 @@ fn main() -> Result<()> {
 
     let instructions = Instructions::try_from(input)?;
 
-    let result: usize = instructions.0.iter().map(|i| i.apply()).sum();
+    let result = instructions.apply_unconditionally();
+    println!("Unconditional Result: {result}");
 
-    println!("Multiplication Result: {result}");
+    let result = instructions.apply_conditionally();
+    println!("Conditional Result: {result}");
 
     Ok(())
 }
@@ -63,16 +101,22 @@ mod tests {
 
         let instructions = Instructions::try_from(input)?;
 
-        assert_eq!(4, instructions.0.len());
-
-        assert_eq!(161usize, instructions.0.iter().map(|i| i.apply()).sum());
+        assert_eq!(161, instructions.apply_unconditionally());
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn part_2_example() -> Result<()> {
-        todo!()
+        util::init_test_logger()?;
+
+        let input =
+            "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))".to_string();
+
+        let instructions = Instructions::try_from(input)?;
+
+        assert_eq!(48, instructions.apply_conditionally());
+
+        Ok(())
     }
 }

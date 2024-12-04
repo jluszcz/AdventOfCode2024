@@ -1,11 +1,12 @@
-use anyhow::{anyhow, Result};
-use clap::{Arg, ArgAction, Command};
-use env_logger::Target;
-use log::{trace, LevelFilter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::str::FromStr;
+
+use anyhow::{anyhow, Result};
+use clap::{Arg, ArgAction, Command};
+use env_logger::Target;
+use log::{LevelFilter, trace};
 
 const INPUT_PATH: &str = "input/input";
 const TEST_INPUT_PATH: &str = "input/example";
@@ -126,6 +127,69 @@ pub enum Neighbor {
     UpperLeft(usize, usize),
     LowerRight(usize, usize),
     LowerLeft(usize, usize),
+}
+
+impl Neighbor {
+    pub fn next<T>(self, grid: &[Vec<T>]) -> Option<Neighbor> {
+        match self {
+            Self::Right(x, y) => {
+                if grid.get(y).and_then(|r| r.get(x + 1)).is_some() {
+                    Some(Self::Right(x + 1, y))
+                } else {
+                    None
+                }
+            }
+            Self::Left(x, y) => {
+                if grid.get(y).is_some() && x > 0 {
+                    Some(Self::Left(x - 1, y))
+                } else {
+                    None
+                }
+            }
+            Self::Upper(x, y) => {
+                if y > 0 {
+                    Some(Self::Upper(x, y - 1))
+                } else {
+                    None
+                }
+            }
+            Self::Lower(x, y) => {
+                if grid.get(y + 1).and_then(|r| r.get(x)).is_some() {
+                    Some(Self::Lower(x, y + 1))
+                } else {
+                    None
+                }
+            }
+            Self::UpperRight(x, y) => {
+                if y > 0 && grid[y - 1].get(x + 1).is_some() {
+                    Some(Self::UpperRight(x + 1, y - 1))
+                } else {
+                    None
+                }
+            }
+            Self::UpperLeft(x, y) => {
+                if y > 0 && x > 0 {
+                    Some(Self::UpperLeft(x - 1, y - 1))
+                } else {
+                    None
+                }
+            }
+            Self::LowerRight(x, y) => {
+                if grid.get(y + 1).and_then(|r| r.get(x + 1)).is_some() {
+                    Some(Self::LowerRight(x + 1, y + 1))
+                } else {
+                    None
+                }
+            }
+            Self::LowerLeft(x, y) => {
+                if grid.get(y + 1).is_some() && x > 0 {
+                    Some(Self::LowerLeft(x - 1, y + 1))
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl From<Neighbor> for (usize, usize) {

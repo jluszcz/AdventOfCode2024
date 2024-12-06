@@ -62,6 +62,8 @@ impl Grid {
         occurrences
     }
 
+    /// Count instances of XMAS (vertical, horizontal, diagonal, backwards) in a 2D grid. One
+    /// `(x,y)` position containing 'X' could have multiple XMASes starting from that 'X'.
     fn count_xmas_occurrences(&self) -> usize {
         let mut occurrences = 0;
 
@@ -74,6 +76,8 @@ impl Grid {
         occurrences
     }
 
+    /// p1 and p2 are `(x,y)` points diagonally adjacent to some other point that's assumed to
+    /// contain 'A'.
     fn mas_on_diagonal(&self, p1: (usize, usize), p2: (usize, usize)) -> bool {
         (self.0[p1.1][p1.0] == 'S' && self.0[p2.1][p2.0] == 'M')
             || (self.0[p1.1][p1.0] == 'M' && self.0[p2.1][p2.0] == 'S')
@@ -120,6 +124,12 @@ impl Grid {
         true
     }
 
+    /// Count instances of an X-MAS (see below) in a 2D grid.
+    /// ```
+    /// M.S
+    /// .A.
+    /// M.S
+    /// ````
     fn count_x_mas_occurrences(&self) -> usize {
         let mut occurrences = 0;
 

@@ -1,20 +1,17 @@
 use std::iter::Iterator;
-use std::sync::LazyLock;
 
 use anyhow::Result;
 use log::{debug, trace};
 
-static XMAS: LazyLock<Vec<char>> = LazyLock::new(|| "XMAS".chars().collect());
+use util::Neighbor;
 
 #[derive(Debug, Default)]
 struct Grid(Vec<Vec<char>>);
 
 impl Grid {
-    fn push(&mut self, line: Vec<char>) {
-        self.0.push(line);
-    }
+    fn xmas_occurrences_from(&self, x: usize, y: usize) -> usize {
+        let word: Vec<char> = "XMAS".chars().collect();
 
-    fn occurrences_from(&self, word: &[char], x: usize, y: usize) -> usize {
         let mut occurrences = 0;
 
         if self.0[y][x] != word[0] {
@@ -65,12 +62,74 @@ impl Grid {
         occurrences
     }
 
-    fn count_occurrences(&self) -> usize {
+    fn count_xmas_occurrences(&self) -> usize {
         let mut occurrences = 0;
 
         for y in 0..self.0.len() {
             for x in 0..self.0[y].len() {
-                occurrences += self.occurrences_from(&XMAS, x, y);
+                occurrences += self.xmas_occurrences_from(x, y);
+            }
+        }
+
+        occurrences
+    }
+
+    fn mas_on_diagonal(&self, p1: (usize, usize), p2: (usize, usize)) -> bool {
+        (self.0[p1.1][p1.0] == 'S' && self.0[p2.1][p2.0] == 'M')
+            || (self.0[p1.1][p1.0] == 'M' && self.0[p2.1][p2.0] == 'S')
+    }
+
+    fn x_mas_occurrences_from(&self, x: usize, y: usize) -> bool {
+        if self.0[y][x] != 'A' {
+            trace!("({x}, {y}) is not 'A', skipping");
+            return false;
+        }
+
+        let mut upper_left = None;
+        let mut upper_right = None;
+        let mut lower_left = None;
+        let mut lower_right = None;
+        for neighbor in util::grid_neighbors(&self.0, x, y, true) {
+            match neighbor {
+                Neighbor::UpperRight(_, _) => upper_right = Some(neighbor),
+                Neighbor::UpperLeft(_, _) => upper_left = Some(neighbor),
+                Neighbor::LowerRight(_, _) => lower_right = Some(neighbor),
+                Neighbor::LowerLeft(_, _) => lower_left = Some(neighbor),
+                _ => (),
+            }
+        }
+
+        match (upper_left, lower_right) {
+            (Some(Neighbor::UpperLeft(x1, y1)), Some(Neighbor::LowerRight(x2, y2))) => {
+                if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        match (upper_right, lower_left) {
+            (Some(Neighbor::UpperRight(x1, y1)), Some(Neighbor::LowerLeft(x2, y2))) => {
+                if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+
+        true
+    }
+
+    fn count_x_mas_occurrences(&self) -> usize {
+        let mut occurrences = 0;
+
+        for y in 0..self.0.len() {
+            for x in 0..self.0[y].len() {
+                occurrences += if self.x_mas_occurrences_from(x, y) {
+                    1
+                } else {
+                    0
+                };
             }
         }
 
@@ -83,7 +142,7 @@ impl From<Vec<String>> for Grid {
         let mut grid = Grid::default();
         for line in value {
             let line = line.chars().collect::<Vec<_>>();
-            grid.push(line);
+            grid.0.push(line);
         }
         grid
     }
@@ -93,8 +152,11 @@ fn main() -> Result<()> {
     let input = util::init()?;
     let grid = Grid::from(input);
 
-    let occurrences = grid.count_occurrences();
-    println!("Occurrences: {occurrences}");
+    let occurrences = grid.count_xmas_occurrences();
+    println!("XMAS Occurrences: {occurrences}");
+
+    let occurrences = grid.count_x_mas_occurrences();
+    println!("X-MAS Occurrences: {occurrences}");
 
     Ok(())
 }
@@ -116,10 +178,10 @@ XMAS.S
         let input = input.split("\n").map(|s| s.to_string()).collect::<Vec<_>>();
         let grid = Grid::from(input);
 
-        assert_eq!(1, grid.occurrences_from(&XMAS, 2, 0));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 4, 1));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 0, 3));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 1, 4));
+        assert_eq!(1, grid.xmas_occurrences_from(2, 0));
+        assert_eq!(1, grid.xmas_occurrences_from(4, 1));
+        assert_eq!(1, grid.xmas_occurrences_from(0, 3));
+        assert_eq!(1, grid.xmas_occurrences_from(1, 4));
 
         Ok(())
     }
@@ -129,27 +191,33 @@ XMAS.S
         let input = util::init_test()?;
         let grid = Grid::from(input);
 
-        assert_eq!(1, grid.occurrences_from(&XMAS, 4, 0));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 5, 0));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 4, 1));
-        assert_eq!(2, grid.occurrences_from(&XMAS, 9, 3));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 0, 4));
-        assert_eq!(2, grid.occurrences_from(&XMAS, 6, 4));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 0, 5));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 6, 5));
-        assert_eq!(1, grid.occurrences_from(&XMAS, 1, 9));
-        assert_eq!(2, grid.occurrences_from(&XMAS, 3, 9));
-        assert_eq!(3, grid.occurrences_from(&XMAS, 5, 9));
-        assert_eq!(2, grid.occurrences_from(&XMAS, 9, 9));
+        assert_eq!(1, grid.xmas_occurrences_from(4, 0));
+        assert_eq!(1, grid.xmas_occurrences_from(5, 0));
+        assert_eq!(1, grid.xmas_occurrences_from(4, 1));
+        assert_eq!(2, grid.xmas_occurrences_from(9, 3));
+        assert_eq!(1, grid.xmas_occurrences_from(0, 4));
+        assert_eq!(2, grid.xmas_occurrences_from(6, 4));
+        assert_eq!(1, grid.xmas_occurrences_from(0, 5));
+        assert_eq!(1, grid.xmas_occurrences_from(6, 5));
+        assert_eq!(1, grid.xmas_occurrences_from(1, 9));
+        assert_eq!(2, grid.xmas_occurrences_from(3, 9));
+        assert_eq!(3, grid.xmas_occurrences_from(5, 9));
+        assert_eq!(2, grid.xmas_occurrences_from(9, 9));
 
-        assert_eq!(18, grid.count_occurrences());
+        assert_eq!(18, grid.count_xmas_occurrences());
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn part_2_example() -> Result<()> {
+        let input = util::init_test()?;
+        let grid = Grid::from(input);
+
+        assert!(grid.x_mas_occurrences_from(2, 1));
+
+        assert_eq!(9, grid.count_x_mas_occurrences());
+
         Ok(())
     }
 }

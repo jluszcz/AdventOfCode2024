@@ -117,6 +117,25 @@ fn read_lines(path: &'static str) -> Result<Vec<String>> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl From<Direction> for char {
+    fn from(value: Direction) -> Self {
+        match value {
+            Direction::Up => '^',
+            Direction::Down => 'v',
+            Direction::Left => '<',
+            Direction::Right => '>',
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Neighbor {
     Right(usize, usize),
@@ -204,6 +223,20 @@ impl From<Neighbor> for (usize, usize) {
             | Neighbor::LowerRight(x, y)
             | Neighbor::LowerLeft(x, y) => (x, y),
         }
+    }
+}
+
+pub fn grid_neighbor_in_direction<T>(
+    grid: &[Vec<T>],
+    direction: Direction,
+    x: usize,
+    y: usize,
+) -> Option<Neighbor> {
+    match direction {
+        Direction::Up => y.checked_sub(1).map(|y| Neighbor::Upper(x, y)),
+        Direction::Down => grid.get(y + 1).map(|_| Neighbor::Lower(x, y + 1)),
+        Direction::Left => x.checked_sub(1).map(|x| Neighbor::Left(x, y)),
+        Direction::Right => grid[y].get(x + 1).map(|_| Neighbor::Right(x + 1, y)),
     }
 }
 

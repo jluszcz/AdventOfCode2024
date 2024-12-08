@@ -28,6 +28,7 @@ impl GuardState {
             Direction::Down => Direction::Left,
             Direction::Left => Direction::Up,
             Direction::Right => Direction::Down,
+            _ => unreachable!(),
         }
     }
 }
@@ -74,7 +75,7 @@ impl LabState {
         loop {
             visited[guard.position.1][guard.position.0] = true;
 
-            if let Some(neighbor) = util::grid_neighbor_in_direction(
+            if let Some(neighbor) = util::neighbor_in_direction(
                 &obstacles,
                 guard.direction,
                 guard.position.0,

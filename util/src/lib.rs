@@ -68,7 +68,7 @@ pub fn init() -> Result<Vec<String>> {
 
     match input {
         Input::Actual => self::input(),
-        Input::Test => self::test_input(),
+        Input::Test => test_input(),
     }
 }
 
@@ -117,92 +117,106 @@ fn read_lines(path: &'static str) -> Result<Vec<String>> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Direction {
     Up,
     Down,
     Left,
     Right,
+    UpperRight,
+    UpperLeft,
+    LowerRight,
+    LowerLeft,
 }
 
 impl From<Direction> for char {
     fn from(value: Direction) -> Self {
         match value {
-            Direction::Up => '^',
-            Direction::Down => 'v',
-            Direction::Left => '<',
-            Direction::Right => '>',
+            Direction::Up => '↑',
+            Direction::Down => '↓',
+            Direction::Left => '←',
+            Direction::Right => '→',
+            Direction::UpperLeft => '↖',
+            Direction::UpperRight => '↗',
+            Direction::LowerLeft => '↙',
+            Direction::LowerRight => '↘',
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Neighbor {
-    Right(usize, usize),
-    Left(usize, usize),
-    Upper(usize, usize),
-    Lower(usize, usize),
-    UpperRight(usize, usize),
-    UpperLeft(usize, usize),
-    LowerRight(usize, usize),
-    LowerLeft(usize, usize),
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Neighbor {
+    pub direction: Direction,
+    pub position: (usize, usize),
 }
 
 impl Neighbor {
+    pub fn new(direction: Direction, x: usize, y: usize) -> Self {
+        Self {
+            direction,
+            position: (x, y),
+        }
+    }
+
     pub fn next<T>(self, grid: &[Vec<T>]) -> Option<Neighbor> {
-        match self {
-            Self::Right(x, y) => {
+        let Neighbor {
+            direction,
+            position: (x, y),
+        } = self;
+
+        match direction {
+            Direction::Right => {
                 if grid.get(y).and_then(|r| r.get(x + 1)).is_some() {
-                    Some(Self::Right(x + 1, y))
+                    Some(Self::new(Direction::Right, x + 1, y))
                 } else {
                     None
                 }
             }
-            Self::Left(x, y) => {
+            Direction::Left => {
                 if grid.get(y).is_some() && x > 0 {
-                    Some(Self::Left(x - 1, y))
+                    Some(Self::new(Direction::Left, x - 1, y))
                 } else {
                     None
                 }
             }
-            Self::Upper(x, y) => {
+            Direction::Up => {
                 if y > 0 {
-                    Some(Self::Upper(x, y - 1))
+                    Some(Self::new(Direction::Up, x, y - 1))
                 } else {
                     None
                 }
             }
-            Self::Lower(x, y) => {
+            Direction::Down => {
                 if grid.get(y + 1).and_then(|r| r.get(x)).is_some() {
-                    Some(Self::Lower(x, y + 1))
+                    Some(Self::new(Direction::Down, x, y + 1))
                 } else {
                     None
                 }
             }
-            Self::UpperRight(x, y) => {
+            Direction::UpperRight => {
                 if y > 0 && grid[y - 1].get(x + 1).is_some() {
-                    Some(Self::UpperRight(x + 1, y - 1))
+                    Some(Self::new(Direction::UpperRight, x + 1, y - 1))
                 } else {
                     None
                 }
             }
-            Self::UpperLeft(x, y) => {
+            Direction::UpperLeft => {
                 if y > 0 && x > 0 {
-                    Some(Self::UpperLeft(x - 1, y - 1))
+                    Some(Self::new(Direction::UpperLeft, x - 1, y - 1))
                 } else {
                     None
                 }
             }
-            Self::LowerRight(x, y) => {
+            Direction::LowerRight => {
                 if grid.get(y + 1).and_then(|r| r.get(x + 1)).is_some() {
-                    Some(Self::LowerRight(x + 1, y + 1))
+                    Some(Self::new(Direction::LowerRight, x + 1, y + 1))
                 } else {
                     None
                 }
             }
-            Self::LowerLeft(x, y) => {
+            Direction::LowerLeft => {
                 if grid.get(y + 1).is_some() && x > 0 {
-                    Some(Self::LowerLeft(x - 1, y + 1))
+                    Some(Self::new(Direction::LowerLeft, x - 1, y + 1))
                 } else {
                     None
                 }
@@ -213,81 +227,63 @@ impl Neighbor {
 
 impl From<Neighbor> for (usize, usize) {
     fn from(value: Neighbor) -> Self {
-        match value {
-            Neighbor::Right(x, y)
-            | Neighbor::Left(x, y)
-            | Neighbor::Upper(x, y)
-            | Neighbor::Lower(x, y)
-            | Neighbor::UpperRight(x, y)
-            | Neighbor::UpperLeft(x, y)
-            | Neighbor::LowerRight(x, y)
-            | Neighbor::LowerLeft(x, y) => (x, y),
-        }
+        value.position
     }
 }
 
-pub fn grid_neighbor_in_direction<T>(
+pub fn neighbor_in_direction<T>(
     grid: &[Vec<T>],
     direction: Direction,
     x: usize,
     y: usize,
 ) -> Option<Neighbor> {
     match direction {
-        Direction::Up => y.checked_sub(1).map(|y| Neighbor::Upper(x, y)),
-        Direction::Down => grid.get(y + 1).map(|_| Neighbor::Lower(x, y + 1)),
-        Direction::Left => x.checked_sub(1).map(|x| Neighbor::Left(x, y)),
-        Direction::Right => grid[y].get(x + 1).map(|_| Neighbor::Right(x + 1, y)),
+        Direction::Up => y.checked_sub(1).map(|y| Neighbor::new(direction, x, y)),
+        Direction::Down => grid.get(y + 1).map(|_| Neighbor::new(direction, x, y + 1)),
+        Direction::Left => x.checked_sub(1).map(|x| Neighbor::new(direction, x, y)),
+        Direction::Right => grid[y]
+            .get(x + 1)
+            .map(|_| Neighbor::new(direction, x + 1, y)),
+        Direction::UpperLeft => y
+            .checked_sub(1)
+            .filter(|_| x > 0)
+            .map(|y| Neighbor::new(direction, x - 1, y)),
+        Direction::UpperRight => y
+            .checked_sub(1)
+            .and_then(|y| grid[y].get(x + 1))
+            .map(|_| Neighbor::new(direction, x + 1, y - 1)),
+        Direction::LowerLeft => grid
+            .get(y + 1)
+            .filter(|_| x > 0)
+            .map(|_| Neighbor::new(direction, x - 1, y + 1)),
+        Direction::LowerRight => grid
+            .get(y + 1)
+            .and_then(|_| grid[y + 1].get(x + 1))
+            .map(|_| Neighbor::new(direction, x + 1, y + 1)),
     }
 }
 
-pub fn grid_neighbors<T>(
-    grid: &[Vec<T>],
-    x: usize,
-    y: usize,
-    include_diagonal: bool,
-) -> Vec<Neighbor> {
-    let mut neighbors = Vec::with_capacity(8);
+pub fn neighbors<T>(grid: &[Vec<T>], x: usize, y: usize, include_diagonals: bool) -> Vec<Neighbor> {
+    let mut directions = vec![
+        Direction::Up,
+        Direction::Down,
+        Direction::Left,
+        Direction::Right,
+    ];
 
-    {
-        let y = y + 1;
-        if grid.get(y).and_then(|r| r.get(x)).is_some() {
-            neighbors.push(Neighbor::Lower(x, y));
-
-            if include_diagonal {
-                if grid[y].get(x + 1).is_some() {
-                    neighbors.push(Neighbor::LowerRight(x + 1, y));
-                }
-
-                if let Some(x) = x.checked_sub(1) {
-                    neighbors.push(Neighbor::LowerLeft(x, y));
-                }
-            }
-        }
+    if include_diagonals {
+        directions.extend_from_slice(&[
+            Direction::UpperLeft,
+            Direction::UpperRight,
+            Direction::LowerLeft,
+            Direction::LowerRight,
+        ]);
     }
 
-    if let Some(y) = y.checked_sub(1) {
-        neighbors.push(Neighbor::Upper(x, y));
-
-        if include_diagonal {
-            if grid[y].get(x + 1).is_some() {
-                neighbors.push(Neighbor::UpperRight(x + 1, y));
-            }
-
-            if let Some(x) = x.checked_sub(1) {
-                neighbors.push(Neighbor::UpperLeft(x, y));
-            }
-        }
-    }
-
-    if grid.get(y).and_then(|r| r.get(x + 1)).is_some() {
-        neighbors.push(Neighbor::Right(x + 1, y));
-    }
-
-    if let Some(x) = x.checked_sub(1) {
-        neighbors.push(Neighbor::Left(x, y));
-    }
-
-    neighbors
+    directions
+        .into_iter()
+        .filter_map(|d| neighbor_in_direction(grid, d, x, y))
+        .collect()
 }
 
 #[derive(Debug)]
@@ -345,123 +341,135 @@ mod test {
         }
 
         assert_eq_ignore_order(
-            vec![Neighbor::Right(1, 0), Neighbor::Lower(0, 1)],
-            grid_neighbors(&grid, 0, 0, false),
+            vec![
+                Neighbor::new(Direction::Right, 1, 0),
+                Neighbor::new(Direction::Down, 0, 1),
+            ],
+            neighbors(&grid, 0, 0, false),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Right(1, 0),
-                Neighbor::Lower(0, 1),
-                Neighbor::LowerRight(1, 1),
+                Neighbor::new(Direction::Right, 1, 0),
+                Neighbor::new(Direction::Down, 0, 1),
+                Neighbor::new(Direction::LowerRight, 1, 1),
             ],
-            grid_neighbors(&grid, 0, 0, true),
+            neighbors(&grid, 0, 0, true),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Left(4, 0),
-                Neighbor::Right(6, 0),
-                Neighbor::Lower(5, 1),
+                Neighbor::new(Direction::Left, 4, 0),
+                Neighbor::new(Direction::Right, 6, 0),
+                Neighbor::new(Direction::Down, 5, 1),
             ],
-            grid_neighbors(&grid, 5, 0, false),
+            neighbors(&grid, 5, 0, false),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Left(4, 0),
-                Neighbor::Right(6, 0),
-                Neighbor::Lower(5, 1),
-                Neighbor::LowerLeft(4, 1),
-                Neighbor::LowerRight(6, 1),
+                Neighbor::new(Direction::Left, 4, 0),
+                Neighbor::new(Direction::Right, 6, 0),
+                Neighbor::new(Direction::Down, 5, 1),
+                Neighbor::new(Direction::LowerLeft, 4, 1),
+                Neighbor::new(Direction::LowerRight, 6, 1),
             ],
-            grid_neighbors(&grid, 5, 0, true),
-        );
-
-        assert_eq_ignore_order(
-            vec![Neighbor::Left(8, 0), Neighbor::Lower(9, 1)],
-            grid_neighbors(&grid, 9, 0, false),
+            neighbors(&grid, 5, 0, true),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Left(8, 0),
-                Neighbor::Lower(9, 1),
-                Neighbor::LowerLeft(8, 1),
+                Neighbor::new(Direction::Left, 8, 0),
+                Neighbor::new(Direction::Down, 9, 1),
             ],
-            grid_neighbors(&grid, 9, 0, true),
+            neighbors(&grid, 9, 0, false),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Upper(0, 4),
-                Neighbor::Lower(0, 6),
-                Neighbor::Right(1, 5),
+                Neighbor::new(Direction::Left, 8, 0),
+                Neighbor::new(Direction::Down, 9, 1),
+                Neighbor::new(Direction::LowerLeft, 8, 1),
             ],
-            grid_neighbors(&grid, 0, 5, false),
+            neighbors(&grid, 9, 0, true),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Upper(0, 4),
-                Neighbor::Lower(0, 6),
-                Neighbor::Right(1, 5),
-                Neighbor::UpperRight(1, 4),
-                Neighbor::LowerRight(1, 6),
+                Neighbor::new(Direction::Up, 0, 4),
+                Neighbor::new(Direction::Down, 0, 6),
+                Neighbor::new(Direction::Right, 1, 5),
             ],
-            grid_neighbors(&grid, 0, 5, true),
-        );
-
-        assert_eq_ignore_order(
-            vec![Neighbor::Upper(0, 8), Neighbor::Right(1, 9)],
-            grid_neighbors(&grid, 0, 9, false),
+            neighbors(&grid, 0, 5, false),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Upper(0, 8),
-                Neighbor::Right(1, 9),
-                Neighbor::UpperRight(1, 8),
+                Neighbor::new(Direction::Up, 0, 4),
+                Neighbor::new(Direction::Down, 0, 6),
+                Neighbor::new(Direction::Right, 1, 5),
+                Neighbor::new(Direction::UpperRight, 1, 4),
+                Neighbor::new(Direction::LowerRight, 1, 6),
             ],
-            grid_neighbors(&grid, 0, 9, true),
+            neighbors(&grid, 0, 5, true),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::Left(3, 4),
-                Neighbor::Upper(4, 3),
-                Neighbor::Lower(4, 5),
-                Neighbor::Right(5, 4),
+                Neighbor::new(Direction::Up, 0, 8),
+                Neighbor::new(Direction::Right, 1, 9),
             ],
-            grid_neighbors(&grid, 4, 4, false),
+            neighbors(&grid, 0, 9, false),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::UpperLeft(3, 3),
-                Neighbor::Left(3, 4),
-                Neighbor::LowerLeft(3, 5),
-                Neighbor::Upper(4, 3),
-                Neighbor::Lower(4, 5),
-                Neighbor::UpperRight(5, 3),
-                Neighbor::Right(5, 4),
-                Neighbor::LowerRight(5, 5),
+                Neighbor::new(Direction::Up, 0, 8),
+                Neighbor::new(Direction::Right, 1, 9),
+                Neighbor::new(Direction::UpperRight, 1, 8),
             ],
-            grid_neighbors(&grid, 4, 4, true),
-        );
-
-        assert_eq_ignore_order(
-            vec![Neighbor::Upper(9, 8), Neighbor::Left(8, 9)],
-            grid_neighbors(&grid, 9, 9, false),
+            neighbors(&grid, 0, 9, true),
         );
 
         assert_eq_ignore_order(
             vec![
-                Neighbor::UpperLeft(8, 8),
-                Neighbor::Upper(9, 8),
-                Neighbor::Left(8, 9),
+                Neighbor::new(Direction::Left, 3, 4),
+                Neighbor::new(Direction::Up, 4, 3),
+                Neighbor::new(Direction::Down, 4, 5),
+                Neighbor::new(Direction::Right, 5, 4),
             ],
-            grid_neighbors(&grid, 9, 9, true),
+            neighbors(&grid, 4, 4, false),
+        );
+
+        assert_eq_ignore_order(
+            vec![
+                Neighbor::new(Direction::UpperLeft, 3, 3),
+                Neighbor::new(Direction::Left, 3, 4),
+                Neighbor::new(Direction::LowerLeft, 3, 5),
+                Neighbor::new(Direction::Up, 4, 3),
+                Neighbor::new(Direction::Down, 4, 5),
+                Neighbor::new(Direction::UpperRight, 5, 3),
+                Neighbor::new(Direction::Right, 5, 4),
+                Neighbor::new(Direction::LowerRight, 5, 5),
+            ],
+            neighbors(&grid, 4, 4, true),
+        );
+
+        assert_eq_ignore_order(
+            vec![
+                Neighbor::new(Direction::Up, 9, 8),
+                Neighbor::new(Direction::Left, 8, 9),
+            ],
+            neighbors(&grid, 9, 9, false),
+        );
+
+        assert_eq_ignore_order(
+            vec![
+                Neighbor::new(Direction::UpperLeft, 8, 8),
+                Neighbor::new(Direction::Up, 9, 8),
+                Neighbor::new(Direction::Left, 8, 9),
+            ],
+            neighbors(&grid, 9, 9, true),
         );
     }
 

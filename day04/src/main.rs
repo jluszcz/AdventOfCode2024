@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use anyhow::Result;
 use log::{debug, trace};
 
-use util::Neighbor;
+use util::{Direction, Neighbor};
 
 #[derive(Debug, Default)]
 struct Grid(Vec<Vec<char>>);
@@ -18,7 +18,7 @@ impl Grid {
             return occurrences;
         }
 
-        for neighbor in util::grid_neighbors(&self.0, x, y, true) {
+        for neighbor in util::neighbors(&self.0, x, y, true) {
             trace!(
                 "Matched {} in {word:?} at ({x}, {y}), checking {neighbor:?}",
                 word[0]
@@ -93,18 +93,27 @@ impl Grid {
         let mut upper_right = None;
         let mut lower_left = None;
         let mut lower_right = None;
-        for neighbor in util::grid_neighbors(&self.0, x, y, true) {
-            match neighbor {
-                Neighbor::UpperRight(_, _) => upper_right = Some(neighbor),
-                Neighbor::UpperLeft(_, _) => upper_left = Some(neighbor),
-                Neighbor::LowerRight(_, _) => lower_right = Some(neighbor),
-                Neighbor::LowerLeft(_, _) => lower_left = Some(neighbor),
+        for neighbor in util::neighbors(&self.0, x, y, true) {
+            match neighbor.direction {
+                Direction::UpperRight => upper_right = Some(neighbor),
+                Direction::UpperLeft => upper_left = Some(neighbor),
+                Direction::LowerRight => lower_right = Some(neighbor),
+                Direction::LowerLeft => lower_left = Some(neighbor),
                 _ => (),
             }
         }
 
         match (upper_left, lower_right) {
-            (Some(Neighbor::UpperLeft(x1, y1)), Some(Neighbor::LowerRight(x2, y2))) => {
+            (
+                Some(Neighbor {
+                    direction: _,
+                    position: (x1, y1),
+                }),
+                Some(Neighbor {
+                    direction: _,
+                    position: (x2, y2),
+                }),
+            ) => {
                 if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
                     return false;
                 }
@@ -113,7 +122,16 @@ impl Grid {
         }
 
         match (upper_right, lower_left) {
-            (Some(Neighbor::UpperRight(x1, y1)), Some(Neighbor::LowerLeft(x2, y2))) => {
+            (
+                Some(Neighbor {
+                    direction: _,
+                    position: (x1, y1),
+                }),
+                Some(Neighbor {
+                    direction: _,
+                    position: (x2, y2),
+                }),
+            ) => {
                 if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
                     return false;
                 }

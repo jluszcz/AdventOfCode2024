@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use anyhow::Result;
 use log::{debug, trace};
 
-use util::{Direction, Neighbor};
+use util::Direction;
 
 #[derive(Debug, Default)]
 struct Grid(Vec<Vec<char>>);
@@ -89,50 +89,24 @@ impl Grid {
             return false;
         }
 
-        let mut upper_left = None;
-        let mut upper_right = None;
-        let mut lower_left = None;
-        let mut lower_right = None;
-        for neighbor in util::neighbors(&self.0, x, y, true) {
-            match neighbor.direction {
-                Direction::UpperRight => upper_right = Some(neighbor),
-                Direction::UpperLeft => upper_left = Some(neighbor),
-                Direction::LowerRight => lower_right = Some(neighbor),
-                Direction::LowerLeft => lower_left = Some(neighbor),
-                _ => (),
-            }
-        }
-
-        match (upper_left, lower_right) {
-            (
-                Some(Neighbor {
-                    direction: _,
-                    position: (x1, y1),
-                }),
-                Some(Neighbor {
-                    direction: _,
-                    position: (x2, y2),
-                }),
-            ) => {
-                if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
+        match (
+            util::neighbor_in_direction(&self.0, Direction::UpperLeft, x, y),
+            util::neighbor_in_direction(&self.0, Direction::LowerRight, x, y),
+        ) {
+            (Some(n1), Some(n2)) => {
+                if !self.mas_on_diagonal(n1.into(), n2.into()) {
                     return false;
                 }
             }
             _ => return false,
         }
 
-        match (upper_right, lower_left) {
-            (
-                Some(Neighbor {
-                    direction: _,
-                    position: (x1, y1),
-                }),
-                Some(Neighbor {
-                    direction: _,
-                    position: (x2, y2),
-                }),
-            ) => {
-                if !self.mas_on_diagonal((x1, y1), (x2, y2)) {
+        match (
+            util::neighbor_in_direction(&self.0, Direction::UpperRight, x, y),
+            util::neighbor_in_direction(&self.0, Direction::LowerLeft, x, y),
+        ) {
+            (Some(n1), Some(n2)) => {
+                if !self.mas_on_diagonal(n1.into(), n2.into()) {
                     return false;
                 }
             }
